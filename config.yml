@@ -1,0 +1,73 @@
+{
+  "misc": {
+    "capmonster": bb6041d1ryuiytriuy6ef8d76842af268347a71fb3,
+    "main_stock": 105150334096345516436
+  },
+  "bot settings": {
+    "main": {
+      "token": MTA4MTcxNzUyOTAy3MzYxOTE0Mg.Gjd835a3yo.kK23ctsg9txyWcyQibD_i0ejbNBEJmSiC7G-RM,
+      "status": "do_not_disturb",
+      "activity": ".gg/jxmes",
+      "activity_type": "streaming",
+      "prefix": "$"
+    },
+    "other": {
+      "guild_id": 1077006821014909010,
+      "admins": [
+        1051503340963516436
+      ]
+    }
+  },
+  "commands": {
+    "boost": true,
+    "stock": true,
+    "restock": true,
+    "send_tokens": true,
+    "reformat": true,
+    "activity": true,
+    "license": true,
+    "payments": true
+  },
+  "watermark settings": {
+    "data": {
+      "change_nick": true,
+      "change_bio": true
+    },
+    "watermarks": {
+      "username": "jxmes",
+      "bio": "cheapest boosting stuff & supplier and tools in https://discord.gg/2gxuVNUMbc"
+    }
+  },
+  "payments": {
+    "data": {
+      "Paypal": true,
+      "Cashapp": false,
+      "Bitcoin": true,
+      "Litecoin": true,
+      "Ethereum": true,
+      "Solana": false,
+      "Monero": false,
+      "Bitcoin Cash": false
+    },
+    "addresses": {
+      "Paypal": "https://www.paypal.com/paypalme/james032",
+      "Cashapp": "Dont have",
+      "Bitcoin": "bc1q4rxuy27muyatp3gcm2qyz407sdj7z4cc5plapn",
+      "Litecoin": "ltc1qwfdxkcg22rpsdgmgvjek803lt4raj9qz0kga8a",
+      "Ethereum": 0x4E33A6AC1055D5dd78429c6FE9384712c856552B,
+      "Solana": null,
+      "Monero": null,
+      "Bitcoin Cash": null
+    },
+    "emojis": {
+      "Paypal": "<:6788_SN_Paypal_512x512:996392200134995978>",
+      "Cashapp": "<:CashApp:1028009340629684335>",
+      "Bitcoin": "<:BTC:1028009398985031761>",
+      "Litecoin": "<:ltc:1028009470552440952>",
+      "Ethereum": null,
+      "Solana": null,
+      "Monero": null,
+      "Bitcoin Cash": null
+    }
+  }
+}
