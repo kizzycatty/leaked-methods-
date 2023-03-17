@@ -1,0 +1,238 @@
+import core.boost
+import core.setup
+import discord, os, time, threading, requests
+from datetime import datetime
+from core.logger import logger
+from discord.ext import commands
+from discord.ui import InputText, Modal
+from discord.ui import Select, View
+
+data = core.setup.setup()
+guild = data.guild
+types = data.acti_type
+
+
+def is_admin(author: int):
+    if author in data.admins:
+        return True
+    else: 
+        return False
+
+def licensed(user):
+    try:
+        open(f"users/{user}.txt", "r")
+        return True
+    except FileNotFoundError:
+        return False
+
+no_perms = discord.Embed(title="**🚫 | Access Denied**", description="You dont have permissions to do this", timestamp=datetime.now(), color=discord.Colour.red())
+bot = commands.Bot(command_prefix=data.prefix, intents=discord.Intents.all())
+
+@bot.event
+async def on_ready():
+    logger().info("Bot is online")
+    core.setup.setup().print_data()
+
+    if data.status_type == "idle":
+        await bot.change_presence(status=discord.Status.idle)
+    elif data.status_type == "online":
+        await bot.change_presence(status=discord.Status.online)
+    elif data.status_type == "do_not_disturb":
+        await bot.change_presence(status=discord.Status.do_not_disturb)
+
+    if data.acti_type == "playing":
+        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.playing, name=data.activity))
+    elif data.acti_type == "watching":
+        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=data.activity))
+    elif data.acti_type == "streaming":
+        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.streaming, name=data.activity))
+    elif data.acti_type == "competing":
+        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.competing, name=data.activity))
+    elif data.acti_type == "listening":
+        await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=data.activity))
+    logger().success("Finished Starting")
+
+
+class question(Modal):
+    def __init__(self) -> None:
+        super().__init__(title="Server Boosting INFO") #title of the modal up top
+        self.add_item(InputText(label="Discord Server Invite", placeholder="https://discord.gg/Kushboost", required=True)) 
+        self.add_item(InputText(label="How many boosts (even)", placeholder="14", required=True, max_length=5))
+
+    async def callback(self, interaction: discord.Interaction):
+        invite = self.children[0].value
+        amount = int(self.children[1].value)
+        if not (amount % 2) == 0:
+            await interaction.response.send_message("Amount must be even")
+        inv = invite.replace("//", "")
+        if "/invite/" in inv: inv = inv.split("/invite/")[1]
+        elif "/" in inv: inv = inv.split("/")[1]
+        await interaction.response.send_message(f"Started Boosting {inv} for ``x{amount}`` times")
+        go = time.time()
+        done = core.boost.boosting().boost(interaction.user.id, inv, amount)
+        end = time.time()
+        time_went = round(end - go, 5)
+        return await interaction.channel.send(f"Finished boosting for ``{done}/{amount}`` times in ``{time_went}s``")
+
+if data.payment:
+    @bot.slash_command(guild = discord.Object(id=guild), name="payments", description="Shows all the payment methods")
+    async def payments(interaction: discord.Interaction):
+        logger().info(f"{interaction.user} ({interaction.user.id}) ran a command")
+        select = Select(
+            max_values=1,
+            placeholder="CryptoCurrency Addresses",
+            options=[
+                    
+                    discord.SelectOption(label="Paypal", emoji=data.pp, description="Paypal", value=str(data.paypal)),
+                    discord.SelectOption(label="Cashapp", emoji=data.capp, description="Cashapp", value=str(data.cashapp)), 
+                    discord.SelectOption(label="Litecoin", emoji=data.ltc, description="Litecoin Address", value=str(data.litecoin)), 
+                    discord.SelectOption(label="Bitcoin", emoji=data.btc, description="Bitcoin Address", value=str(data.bitcoin)),
+                    discord.SelectOption(label="Ethereum", emoji=data.eth, description="Ethereum Address", value=str(data.ethereum)),
+                    discord.SelectOption(label="Solana", emoji=data.sol, description="Solana Address", value=str(data.solana)),
+                    discord.SelectOption(label="Monero", emoji=data.mon, description="Monero Address", value=str(data.monero)),
+                    discord.SelectOption(label="Bitcoin Cash", emoji=data.bhc, description="Bitcoin Cash Address", value=str(data.bit_cash)),
+                    discord.SelectOption(label="Nano", emoji=data.nan, description="Nano Coin Address", value=str(data.nano)),
+                    discord.SelectOption(label="Binance Coin", emoji=data.bnc, description="Binance Coin Address", value=f" {str(data.ethereum)}"),
+                    discord.SelectOption(label="Tron", emoji=data.trn, description="Tron Address", value=str(data.tron))
+            ]
+        )
+        async def my_callback(interaction: discord.Interaction):
+            await interaction.response.send_message(f"{select.values[0]}", ephemeral=True)
+        select.callback = my_callback
+        view = View()
+        view.add_item(select)
+        embed=discord.Embed(title="Select your cryptocurrency", timestamp=datetime.now(), color=discord.Colour.blurple())
+        await interaction.response.send_message(embed=embed, view=view)
+
+if data.acti:
+    @bot.slash_command(guild = discord.Object(id=guild), name="activity", description="changes bot activity name")
+    async def activity(interaction: discord.Interaction, activity: str):
+        logger().info(f"{interaction.user} ({interaction.user.id}) ran a command")
+        if not is_admin(interaction.user.id):
+            await interaction.response.send_message(embed=no_perms, ephemeral=True)  
+        elif is_admin(interaction.user.id):
+            embed = discord.Embed(description=f"Activity changed to ``{activity}``", timestamp=datetime.now(), color=discord.Color.blurple()).set_footer(text=interaction.user, icon_url=interaction.user.display_avatar)
+            await bot.change_presence(status=discord.Status.statuses, activity=discord.Activity(type=discord.ActivityType.types, name=f"{activity}"))
+            await interaction.response.send_message(embed=embed)
+
+def check_token(user):
+    valid = 0; invalid = 0
+    for token in open(f"users/{user}.txt").read().splitlines():
+        response = requests.get('https://discord.com/api/v9/users/@me/library', headers={
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br",
+            "accept-language": "en-US,en;q=0.9",
+            "authorization": token,
+            "cookie": "__dcfduid=88221810e37411ecb92c839028f4e498; __sdcfduid=88221811e37411ecb92c839028f4e498dc108345b16a69b7966e1b3d33d2182268b3ffd2ef5dfb497aef45ea330267cf; locale=en-US; OptanonConsent=isIABGlobal=false&datestamp=Fri+Jun+03+2022+15%3A36%3A59+GMT-0400+(Eastern+Daylight+Time)&version=6.33.0&hosts=&landingPath=https%3A%2F%2Fdiscord.com%2F&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1; __stripe_mid=3a915c95-4cf7-4d27-9d85-cfea03f7ce829a88e5; __stripe_sid=b699111a-a911-402d-a08a-c8801eb0f2e8baf912; __cf_bm=nEUsFi1av6PiX4cHH1PEcKFKot6_MslL4UbUxraeXb4-1654285264-0-AU8vy1OnS/uTMTGu2TbqIGYWUreX3IAEpMo++NJZgaaFRNAikwxeV/gxPixQ/DWlUyXaSpKSNP6XweSVG5Mzhn/QPdHU3EmR/pQ5K42/mYQaiRRl6osEVJWMMtli3L5iIA==",
+            "referer": "https://discord.com/channels/967617613960187974/981260247807168532",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "sec-gpc": "1",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.5005.61 Safari/537.36",
+            "x-discord-locale": "en-US",
+            "x-super-properties": "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEwMi4wLjUwMDUuNjEgU2FmYXJpLzUzNy4zNiIsImJyb3dzZXJfdmVyc2lvbiI6IjEwMi4wLjUwMDUuNjEiLCJvc192ZXJzaW9uIjoiMTAiLCJyZWZlcnJlciI6IiIsInJlZmVycmluZ19kb21haW4iOiIiLCJyZWZlcnJlcl9jdXJyZW50IjoiIiwicmVmZXJyaW5nX2RvbWFpbl9jdXJyZW50IjoiIiwicmVsZWFzZV9jaGFubmVsIjoic3RhYmxlIiwiY2xpZW50X2J1aWxkX251bWJlciI6MTMwNDEwLCJjbGllbnRfZXZlbnRfc291cmNlIjpudWxsfQ=="}, timeout=5)
+        if response.status_code == 200:
+            valid += 1
+        else:
+            core.boost.boosting().remove(token, user)
+            invalid += 1
+
+    return valid, invalid
+
+@bot.slash_command(name="check")
+async def check(interaction: discord.Interaction):
+    valid, invalid = check_token(interaction.user.id)
+    await interaction.channel.send(f"Total of ``{valid}`` were valid and invalids were ``{invalid}``")
+
+if data.stock:
+    @bot.slash_command(guild = discord.Object(id=guild), name="stock", description="shows ur stock")
+    async def stock(interaction: discord.Interaction):
+        logger().info(f"{interaction.user} ({interaction.user.id}) ran a command")
+        if not licensed(interaction.user.id):
+            stock = open(f"users/{data.main}.txt").read().splitlines()
+            await interaction.response.send_message(f"{len(stock)} tokens in stock Meaning {len (2 * (stock))} boosts")
+        elif licensed(interaction.user.id):
+            stock = open(f"users/{interaction.user.id}.txt").read().splitlines()
+            await interaction.response.send_message(f"{len(stock)} tokens in stock Meaning {len (2 * (stock))} boosts")
+
+if data.restock:
+    @bot.slash_command(guild = discord.Object(id=guild), name="restock", description="Restock tokens")
+    async def restock(interaction: discord.Interaction, file: discord.Attachment):
+        logger().info(f"{interaction.user} ({interaction.user.id}) ran a command")
+        if not licensed(interaction.user.id):
+            await interaction.response.send_message(embed=no_perms, ephemeral=True)
+        if licensed(interaction.user.id):
+            tokens = await file.read()
+            tokens = tokens.decode()
+            with open(f"users/{interaction.user.id}.txt", "a") as tokens_input:
+                for token in tokens.splitlines():
+                    tokens_input.write(token + "\n")
+            await interaction.response.send_message(f"Restocked {len(tokens.splitlines())} tokens")
+
+if data.send:
+    @bot.slash_command(guild = discord.Object(id=guild), name="send", description="Sends them tokens")
+    async def send(interaction: discord.Interaction, user: discord.User, amount: int):
+        logger().info(f"{interaction.user} ({interaction.user.id}) ran a command")
+        if not is_admin(interaction.user.id):
+            await interaction.response.send_message(embed=no_perms, ephemeral=True)
+        if is_admin(interaction.user.id):
+            temp_tokens = open(f"users/{interaction.user.id}.txt").read().splitlines()
+            tokens_to_give = temp_tokens[0:amount]
+            temp_tokens = temp_tokens[amount:]
+            f = open(f"token.txt", "w")
+            for tk in tokens_to_give:
+                f.write(tk + "\n")
+            f = open(f"users/{interaction.user.id}.txt", "w")
+            for tk in temp_tokens:
+                f.write(tk + "\n")
+            await user.send(f"Here are your x{amount} tokens",file=discord.File(f"token.txt"))
+            await interaction.response.send_message(f"Sent {user.mention} x{amount} tokens")
+            os.remove(f"token.txt")
+
+if data.reformat:
+    @bot.slash_command(guild = discord.Object(id=guild), name="reformat", description="email:pass:token to token")
+    async def reformat(interaction: discord.Interaction):
+        logger().info(f"{interaction.user} ({interaction.user.id}) ran a command")
+        if not licensed(interaction.user.id):
+            await interaction.response.send_message(embed=no_perms, ephemeral=True)
+        elif licensed(interaction.user.id):
+            try:
+                for combo in open(f"users/{interaction.user.id}.txt").read().splitlines():
+                    if '@' in combo: 
+                        split = combo.split(':')
+                        token = split[2]
+                        core.boost.boosting().remove(combo, interaction.user.id)
+                        with open(f'users/{interaction.user.id}.txt','a') as f:
+                            f.write(token + '\n')
+            except StopIteration:
+                await interaction.response.send_message("No tokens in txt")
+            await interaction.response.send_message("Reformatted tokens")
+
+if data.license:
+    @bot.slash_command(guild = discord.Object(id=guild), name="license", description="name tells everything")
+    async def license(interaction: discord.Interaction, user: discord.User):
+        logger().info(f"{interaction.user} ({interaction.user.id}) ran a command")
+        if not is_admin(interaction.user.id):
+            await interaction.response.send_message(embed=no_perms, ephemeral=True)
+        elif is_admin(interaction.user.id):
+            if not licensed(user.id):
+                logger().info(f"{user} ({user.id}) is not licensed, giving his license")
+                open(f"users/{user.id}.txt", 'w')
+                await interaction.response.send_message(f"Licensed {user.mention}")
+            elif licensed(user.id):
+                logger().info(f"{user} ({user.id}) is licensed, removed his license")
+                os.remove(f"users/{user.id}.txt")
+                await interaction.response.send_message(f"Unlicensed {user.mention}")
+
+if data.boost:
+    @bot.slash_command(guild = discord.Object(id=guild), name="boost", description="boost servers")
+    async def boost1(interaction: discord.Interaction):   
+        logger().info(f"{interaction.user} ({interaction.user.id}) ran a command")
+        if not licensed(interaction.user.id):
+            await interaction.response.send_message(embed=no_perms, ephemeral=True)
+        elif licensed(interaction.user.id):
+            await interaction.response.send_modal(question())
+            
+
+bot.run(data.token)
