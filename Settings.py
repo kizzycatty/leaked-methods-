@@ -1,0 +1,5 @@
+Token = "MTA1NTk2NTI4NDA2Mzc4NDk4MQ.G6-dvo.Y1j4c3CKyDwVmAVg83onlS-WqdYvg_lXlropx0"
+
+Guilds = [1051505372701143062]
+Categories = [1051505373204467792]
+TranscriptChannels = [1055966107950911609]
